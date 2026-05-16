@@ -29,9 +29,9 @@ def test_mock_end_to_end(isolated_db, no_api_key):
     fit_profile = load_fit_profile("config/fit_profile.yaml")
     suppression = load_pipeline_suppression("config/companies_in_pipeline.yaml")
 
-    scored = run_mock(fit_profile=fit_profile, db=isolated_db, suppression=suppression)
+    result = run_mock(fit_profile=fit_profile, db=isolated_db, suppression=suppression)
 
-    company_names = {c.enrichment.company_name for c in scored}
+    company_names = {c.enrichment.company_name for c in result.scored}
 
     # UK/EU companies should pass; US/hardware should not.
     assert "Lovable" in company_names
@@ -40,14 +40,19 @@ def test_mock_end_to_end(isolated_db, no_api_key):
     assert "CropWise" in company_names
     assert "Zenith Robotics" not in company_names
 
+    # Funnel sanity: every fixture row was parsed, one was geo-dropped.
+    assert result.stats.total_parsed == 5
+    assert result.stats.geo_filter_dropped == 1
+    assert result.stats.scored == 4
+
 
 def test_cfo_present_caps_finance_gap(isolated_db, no_api_key):
     fit_profile = load_fit_profile("config/fit_profile.yaml")
     suppression = load_pipeline_suppression("config/companies_in_pipeline.yaml")
 
-    scored = run_mock(fit_profile=fit_profile, db=isolated_db, suppression=suppression)
+    result = run_mock(fit_profile=fit_profile, db=isolated_db, suppression=suppression)
 
-    finsight = next(c for c in scored if c.enrichment.company_name == "Finsight")
+    finsight = next(c for c in result.scored if c.enrichment.company_name == "Finsight")
     # Heuristic enrichment can't infer CFO presence from the title without a careers
     # page, so we don't assert has_existing_cfo_flag here — but the rule is enforced
     # in scoring.rubric when the flag is set. That path is exercised in unit form.
@@ -61,5 +66,6 @@ def test_idempotency(isolated_db, no_api_key):
     first = run_mock(fit_profile=fit_profile, db=isolated_db, suppression=suppression)
     second = run_mock(fit_profile=fit_profile, db=isolated_db, suppression=suppression)
 
-    assert len(first) > 0
-    assert len(second) == 0, "Second run must skip already-seen events."
+    assert len(first.scored) > 0
+    assert len(second.scored) == 0, "Second run must skip already-seen events."
+    assert second.stats.already_seen == first.stats.scored

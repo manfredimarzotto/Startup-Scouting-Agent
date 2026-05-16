@@ -9,11 +9,16 @@ from pathlib import Path
 import anthropic
 
 from scout.models import ScoredCompany
+from scout.pipeline import PipelineStats
 
 _SONNET = "claude-sonnet-4-6"
 
 
-def render_daily_digest(companies: list[ScoredCompany], top_n: int = 10) -> str:
+def render_daily_digest(
+    companies: list[ScoredCompany],
+    stats: PipelineStats | None = None,
+    top_n: int = 10,
+) -> str:
     ordered = sorted(companies, key=lambda c: c.score.composite, reverse=True)[:top_n]
 
     today = date.today().isoformat()
@@ -22,6 +27,9 @@ def render_daily_digest(companies: list[ScoredCompany], top_n: int = 10) -> str:
     lines.append("")
     lines.append(f"_Top {len(ordered)} of {len(companies)} surfaced after UK/EU filter._")
     lines.append("")
+
+    if stats is not None:
+        lines.extend(_render_stats_block(stats))
 
     if not ordered:
         lines.append("No companies passed the filters today.")
@@ -70,6 +78,31 @@ def render_daily_digest(companies: list[ScoredCompany], top_n: int = 10) -> str:
         lines.append("")
 
     return "\n".join(lines)
+
+
+def _render_stats_block(stats: PipelineStats) -> list[str]:
+    """Compact diagnostic header so empty digests are debuggable at a glance."""
+    out: list[str] = []
+    out.append("<details><summary>Pipeline stats</summary>")
+    out.append("")
+    out.append("| source | http | raw | in window | funding-term | parsed | error |")
+    out.append("|---|---:|---:|---:|---:|---:|---|")
+    for name, s in stats.per_source.items():
+        out.append(
+            f"| {name} | {s.http_status or '—'} | {s.raw_entries} | {s.in_window} | "
+            f"{s.funding_term_match} | {s.parsed_events} | {s.error or ''} |"
+        )
+    out.append("")
+    out.append(
+        f"**Funnel:** {stats.total_parsed} parsed → {stats.already_seen} already-seen "
+        f"+ {stats.suppressed} suppressed + {stats.enriched} enriched → "
+        f"{stats.geo_filter_passed} passed geo (dropped {stats.geo_filter_dropped}) → "
+        f"{stats.scored} scored"
+    )
+    out.append("")
+    out.append("</details>")
+    out.append("")
+    return out
 
 
 def _format_amount(usd: int | None) -> str:

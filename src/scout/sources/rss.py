@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import re
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Iterable
 
@@ -13,6 +14,19 @@ import httpx
 from scout.models import FundingEvent
 
 log = logging.getLogger("scout.sources.rss")
+
+
+@dataclass
+class SourceStats:
+    """Populated by a source after its fetch generator is exhausted."""
+
+    http_status: int | None = None
+    raw_entries: int = 0  # entries returned by feedparser before any filter
+    in_window: int = 0  # entries within the lookback window
+    funding_term_match: int = 0  # entries that mention raise/funding terms
+    parsed_events: int = 0  # entries that successfully became FundingEvents
+    error: str | None = None  # short error reason if the fetch failed
+
 
 # Many publisher feeds 403 the default Python/feedparser User-Agent. Use a
 # browser-shaped UA + explicit Accept so we don't get filtered. RSS fetches
@@ -48,7 +62,11 @@ class RSSSource:
     # than blocking the daily run on one slow source.
     fetch_timeout: float = 10.0
 
+    def __init__(self) -> None:
+        self.stats = SourceStats()
+
     def fetch(self, lookback_days: int = 2) -> Iterable[FundingEvent]:
+        self.stats = SourceStats()  # reset per call
         cutoff = datetime.now(timezone.utc) - timedelta(days=lookback_days)
         try:
             resp = httpx.get(
@@ -58,17 +76,24 @@ class RSSSource:
                 follow_redirects=True,
             )
         except httpx.HTTPError as exc:
+            self.stats.error = type(exc).__name__
             log.warning("rss fetch failed for %s: %s", self.name, exc)
             return
+
+        self.stats.http_status = resp.status_code
         if resp.status_code != 200 or not resp.text:
+            self.stats.error = f"HTTP {resp.status_code}"
             log.warning("rss fetch returned HTTP %s for %s", resp.status_code, self.name)
             return
 
         parsed = feedparser.parse(resp.text)
+        self.stats.raw_entries = len(parsed.entries)
+
         for entry in parsed.entries:
             published = self._entry_datetime(entry)
             if published is None or published < cutoff:
                 continue
+            self.stats.in_window += 1
 
             title = (entry.get("title") or "").strip()
             summary = (entry.get("summary") or entry.get("description") or "").strip()
@@ -77,11 +102,13 @@ class RSSSource:
             text_blob = f"{title} {summary}"
             if self.require_funding_terms and not _FUNDING_TERMS.search(text_blob):
                 continue
+            self.stats.funding_term_match += 1
 
             company = self.extract_company_name(title, summary)
             if not company:
                 continue
 
+            self.stats.parsed_events += 1
             yield FundingEvent(
                 source=self.name,
                 source_url=link,
