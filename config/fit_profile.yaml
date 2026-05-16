@@ -1,0 +1,101 @@
+# The candidate profile against which companies are scored.
+# Edit freely. Scoring prompts read this verbatim, so changes here change rationales.
+
+candidate:
+  name: Manfredi Marzotto
+  current_role: Senior Associate, Software M&A, William Blair (London)
+  years_experience: 6
+  background_summary: |
+    M&A banker covering vertical SaaS, PropTech, ConTech for ~6 years.
+    Active angel investor (AI). Interim CFO advisory at an AI startup.
+    Ships code. Transitioning out of banking into a strategic finance /
+    CFO / founder's associate role at a high-growth, ideally AI-native startup.
+
+target_roles:
+  - First finance hire
+  - Head of Strategic Finance
+  - Head of FP&A
+  - VP Finance
+  - Early-stage CFO
+  - Founder's Associate (Finance)
+
+sector_depth:
+  high:
+    - AI-native SaaS
+    - Vertical SaaS
+    - PropTech
+    - ConTech
+    - HR software
+    - Fintech infrastructure
+    - Developer tools
+  low_or_avoid:
+    - Hardware
+    - Deeply regulated industries
+    - Biotech / therapeutics
+    - Defense
+
+geography:
+  # Hard filter — only surface companies based here or with a strong UK/EU presence.
+  allowed_hq_countries:
+    - United Kingdom
+    - Ireland
+    - France
+    - Germany
+    - Netherlands
+    - Sweden
+    - Denmark
+    - Norway
+    - Finland
+    - Iceland
+    - Spain
+    - Portugal
+    - Italy
+    - Belgium
+    - Luxembourg
+    - Switzerland
+    - Austria
+    - Poland
+    - Estonia
+    - Lithuania
+    - Latvia
+    - Czech Republic
+    - Romania
+    - Bulgaria
+    - Greece
+    - Hungary
+    - Slovakia
+    - Slovenia
+    - Croatia
+    - Cyprus
+    - Malta
+  bonus_clusters:
+    - London
+    - Stockholm
+    - Paris
+    - Berlin
+    - Amsterdam
+    - Dublin
+    - Milan
+
+round_size:
+  sweet_spot_min_usd: 5_000_000
+  sweet_spot_max_usd: 50_000_000
+  stage_priority:
+    - Series A
+    - Series B
+    - Large Seed
+
+reachability_signals:
+  warm_investor_network:
+    - Index Ventures
+    - Accel
+    - Atomico
+    - Balderton
+    - LocalGlobe
+    - EF (Entrepreneur First)
+    - Y Combinator (EU portfolio)
+    - Northzone
+    - Creandum
+    - Project A
+  italian_tech_ecosystem: true
+  angel_coinvestors: []  # fill in as relationships grow
