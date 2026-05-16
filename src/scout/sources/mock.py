@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Iterable
 
 from scout.models import FundingEvent
+from scout.sources.rss import SourceStats
 
 
 class MockSource:
@@ -17,10 +18,16 @@ class MockSource:
         if fixture_path is None:
             fixture_path = Path(__file__).resolve().parents[3] / "tests" / "fixtures" / "mock_funding.json"
         self.fixture_path = Path(fixture_path)
+        self.stats = SourceStats()
 
     def fetch(self, lookback_days: int = 2) -> Iterable[FundingEvent]:
+        self.stats = SourceStats(http_status=200)
         data = json.loads(self.fixture_path.read_text())
+        self.stats.raw_entries = len(data)
+        self.stats.in_window = len(data)
+        self.stats.funding_term_match = len(data)
         for row in data:
+            self.stats.parsed_events += 1
             yield FundingEvent(
                 source=self.name,
                 source_url=row["source_url"],

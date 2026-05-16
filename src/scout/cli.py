@@ -56,7 +56,7 @@ def main(argv: list[str] | None = None) -> int:
         suppression = load_pipeline_suppression(args.pipeline_file)
 
         if args.cmd == "run":
-            scored = run(
+            result = run(
                 sources=default_live_sources(),
                 fit_profile=fit_profile,
                 db=db,
@@ -64,12 +64,17 @@ def main(argv: list[str] | None = None) -> int:
                 lookback_days=args.lookback_days,
             )
         else:
-            scored = run_mock(fit_profile=fit_profile, db=db, suppression=suppression)
+            result = run_mock(fit_profile=fit_profile, db=db, suppression=suppression)
 
-        digest = render_daily_digest(scored, top_n=args.top_n)
+        digest = render_daily_digest(result.scored, stats=result.stats, top_n=args.top_n)
         out_path = digest_dir / f"{date.today().isoformat()}.md"
         out_path.write_text(digest)
-        print(f"Scored {len(scored)} companies. Digest written to {out_path}")
+        print(
+            f"Scored {len(result.scored)} companies "
+            f"(parsed {result.stats.total_parsed} from {len(result.stats.per_source)} sources, "
+            f"dropped {result.stats.geo_filter_dropped} on geo). "
+            f"Digest written to {out_path}"
+        )
         return 0
 
     if args.cmd == "synth":
