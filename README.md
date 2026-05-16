@@ -9,8 +9,8 @@ associate roles at AI-native and vertical SaaS startups.
 
 ## What it does
 
-1. Pulls funding announcements from 5 RSS sources (TechCrunch, Sifted, EU-Startups,
-   Tech.eu, UKTN).
+1. Pulls funding announcements from 5 RSS sources (TechCrunch, TechFundingNews,
+   EU-Startups, Tech.eu, UKTN).
 2. Applies a **hard UK/EU geo filter** — US companies are dropped before scoring.
 3. For each company, tries to fetch the careers page and detect finance-adjacent
    role openings (CFO, Head of Finance, Strategic Finance, BizOps, Chief of Staff,
@@ -28,8 +28,8 @@ State lives in SQLite — re-runs are idempotent.
 
 ## Design decisions baked into v1
 
-- **Sources:** TechCrunch + Sifted + EU-Startups + Tech.eu + UKTN RSS. No
-  Crunchbase, no LinkedIn scraping.
+- **Sources:** TechCrunch + TechFundingNews + EU-Startups + Tech.eu + UKTN RSS.
+  No Crunchbase, no LinkedIn scraping.
 - **LinkedIn:** never scraped. The digest embeds search URLs you click through to
   verify finance team composition manually. Avoids ToS issues entirely.
 - **Geography:** UK + EU only. US companies are hard-filtered out, even if the
