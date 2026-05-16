@@ -3,7 +3,7 @@ from scout.sources.rss import RSSSource
 
 class EUStartupsSource(RSSSource):
     name = "eu_startups"
-    url = "https://www.eu-startups.com/category/funding/feed/"
-    # Category feed is funding-only; skip the keyword gate so we don't drop entries
-    # whose titles use unusual phrasing.
-    require_funding_terms = False
+    # The category-feed URL pattern (/category/funding/feed/) 404s. Main feed
+    # works; the funding-term regex filters it down to fundraise headlines.
+    url = "https://www.eu-startups.com/feed/"
+    require_funding_terms = True
