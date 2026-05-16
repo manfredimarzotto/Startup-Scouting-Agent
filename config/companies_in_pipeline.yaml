@@ -1,0 +1,12 @@
+# Companies already in active conversation. Suppressed from the daily digest.
+# Add an entry per company. Matching is on normalized name (lowercase, stripped).
+# Optionally include a `note` for your own reference.
+
+pipeline: []
+# Example:
+# pipeline:
+#   - name: Lovable
+#     status: in_conversation        # in_conversation | passed | declined | hired
+#     note: First call with founders 2026-04-12
+#   - name: Acme AI
+#     status: passed

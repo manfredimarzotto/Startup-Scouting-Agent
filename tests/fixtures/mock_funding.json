@@ -1,0 +1,42 @@
+[
+  {
+    "source_url": "https://example.com/lovable-series-a",
+    "title": "Lovable raises $25M Series A led by Accel",
+    "summary": "Stockholm-based AI-native vibe-coding startup Lovable raised $25M Series A led by Accel, with participation from Creandum and EF. The company has grown to $30M ARR with a team of 25 engineers and no dedicated finance function.",
+    "company_name": "Lovable",
+    "published_at": "2026-05-15T09:00:00",
+    "raw_hq_hint": "Stockholm"
+  },
+  {
+    "source_url": "https://example.com/buildmate-seed",
+    "title": "BuildMate raises £8M Seed to bring AI to UK construction estimating",
+    "summary": "London-based ConTech startup BuildMate raised £8M seed led by LocalGlobe. Founders are ex-Procore engineers (technical). Careers page lists openings for Chief of Staff and Finance Manager.",
+    "company_name": "BuildMate",
+    "published_at": "2026-05-14T10:00:00",
+    "raw_hq_hint": "London"
+  },
+  {
+    "source_url": "https://example.com/finsight-series-b",
+    "title": "Finsight raises $40M Series B with CFO Sarah Chen leading finance",
+    "summary": "Berlin-based fintech infrastructure startup Finsight raised $40M Series B led by Index Ventures. The company already has a built-out finance function with CFO Sarah Chen (ex-Stripe).",
+    "company_name": "Finsight",
+    "published_at": "2026-05-14T12:00:00",
+    "raw_hq_hint": "Berlin"
+  },
+  {
+    "source_url": "https://example.com/zenith-series-a",
+    "title": "Zenith Robotics raises $30M Series A for warehouse automation",
+    "summary": "San Francisco-based hardware robotics company Zenith Robotics raised $30M Series A led by Sequoia. Hardware-heavy, US-only operations.",
+    "company_name": "Zenith Robotics",
+    "published_at": "2026-05-14T15:00:00",
+    "raw_hq_hint": "San Francisco"
+  },
+  {
+    "source_url": "https://example.com/cropwise-series-a",
+    "title": "CropWise raises €12M Series A for AI-native vertical SaaS in agriculture",
+    "summary": "Amsterdam-based AI-native vertical SaaS startup CropWise raised €12M Series A led by Atomico. Two technical co-founders (ex-Google). No senior finance leader; team of 18.",
+    "company_name": "CropWise",
+    "published_at": "2026-05-13T11:00:00",
+    "raw_hq_hint": "Amsterdam"
+  }
+]
