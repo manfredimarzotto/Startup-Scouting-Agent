@@ -4,6 +4,7 @@ Examples:
     scout run-mock                   # end-to-end on fixture data, no API key needed
     scout run                        # daily run against live RSS sources
     scout synth                      # weekly synthesis over the last 7 days
+    scout dashboard                  # regenerate docs/index.html from scout.db
 """
 
 from __future__ import annotations
@@ -15,7 +16,7 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from scout.digest import render_daily_digest, render_weekly_synthesis
+from scout.digest import render_daily_digest, render_dashboard, render_weekly_synthesis
 from scout.outreach.angle import load_pipeline_suppression
 from scout.pipeline import default_live_sources, load_fit_profile, run, run_mock
 from scout.storage import ScoutDB
@@ -43,6 +44,8 @@ def main(argv: list[str] | None = None) -> int:
 
     p_synth = sub.add_parser("synth", help="Weekly synthesis (Sonnet) over the last N days.")
     p_synth.add_argument("--days", type=int, default=7)
+
+    sub.add_parser("dashboard", help="Regenerate docs/index.html from scout.db.")
 
     args = parser.parse_args(argv)
 
@@ -83,6 +86,15 @@ def main(argv: list[str] | None = None) -> int:
         out_path = digest_dir / f"weekly-{date.today().isoformat()}.md"
         out_path.write_text(synth)
         print(f"Synthesis over {len(recent)} companies written to {out_path}")
+        return 0
+
+    if args.cmd == "dashboard":
+        docs_dir = Path("./docs")
+        docs_dir.mkdir(parents=True, exist_ok=True)
+        html_out = render_dashboard(db)
+        out_path = docs_dir / "index.html"
+        out_path.write_text(html_out)
+        print(f"Dashboard regenerated at {out_path}")
         return 0
 
     return 1

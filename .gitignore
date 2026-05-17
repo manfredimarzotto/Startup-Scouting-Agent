@@ -13,3 +13,4 @@ build/
 .DS_Store
 digests/*.md
 !digests/.gitkeep
+docs/index.html
