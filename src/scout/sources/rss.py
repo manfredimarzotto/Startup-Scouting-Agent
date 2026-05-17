@@ -43,10 +43,34 @@ _RSS_HEADERS = {
 
 # Match phrases like "raises $5M", "secures €10M", "£12 million", "raised $5.4M Series A"
 _FUNDING_TERMS = re.compile(
-    r"\b(raises?|raised|secures?|closes?|lands?|nets?|bags?|picks up|announces)\b.*?"
-    r"(\$|€|£|usd|eur|gbp|seed|series|funding|round)",
+    r"\b(raises?|raised|secures?|closes?|lands?|nets?|bags?|picks up|"
+    r"announces|completes?|wraps?|hauls?|grabs?|gets|wins?)\b.*?"
+    r"(\$|€|£|usd|eur|gbp|seed|series|funding|round|million|billion)",
     re.IGNORECASE,
 )
+
+
+# Strip leading "London's", "Berlin-based", "<adj> startup" etc. before
+# trying to grab the company name.
+_NAME_PREFIX_STRIP = re.compile(
+    r"^(?:[A-Z][\w']+(?:'s|-based|-headquartered)\s+|"
+    r"[A-Z][\w']+\s+(?:startup|scaleup|company|firm)\s+)",
+)
+
+# Multi-pattern company name extraction. Tried in order.
+_NAME_PATTERNS = [
+    # "X raises", "X raised", etc. — strict, name at start of title
+    re.compile(
+        r"^([A-Z][\w&\.\-]+(?:\s+[A-Z][\w&\.\-]+){0,4})"
+        r"\s+(?:raises?|raised|secures?|closes?|lands?|nets?|bags?|"
+        r"announces|completes?|wraps?|hauls?|grabs?|gets|wins?)\b"
+    ),
+    # "Funding for X" / "Investment in X"
+    re.compile(
+        r"\b(?:funding|investment|capital)\s+(?:for|in)\s+"
+        r"([A-Z][\w&\.\-]+(?:\s+[A-Z][\w&\.\-]+){0,3})\b"
+    ),
+]
 
 
 class RSSSource:
@@ -128,11 +152,27 @@ class RSSSource:
         return None
 
     def extract_company_name(self, title: str, summary: str) -> str | None:
-        """Default heuristic: company is the word(s) before 'raises/secures/closes'."""
-        m = re.search(
-            r"^([A-Z][\w&\.\- ]{1,60}?)\s+(raises?|raised|secures?|closes?|lands?|nets?|bags?)",
-            title,
-        )
+        """Extract company name from a fundraise headline.
+
+        Tries multiple patterns; falls back to the first capitalized phrase
+        after stripping common prefixes ("London's ...", "Berlin-based ...",
+        "<adj> startup ..."). Returning a permissive name is fine — Haiku
+        enrichment corrects it downstream, and the geo/score stages use the
+        enriched value not this one.
+        """
+        # Strip leading geo / descriptor prefix so the name patterns see the
+        # actual subject of the sentence.
+        cleaned = _NAME_PREFIX_STRIP.sub("", title)
+
+        for pattern in _NAME_PATTERNS:
+            m = pattern.search(cleaned)
+            if m:
+                return m.group(1).strip()
+
+        # Last-resort fallback: first capitalized phrase in the cleaned title.
+        # Better to surface a slightly-wrong name and let Haiku correct it
+        # than to drop the event entirely.
+        m = re.match(r"([A-Z][\w&\.\-]+(?:\s+[A-Z][\w&\.\-]+){0,2})", cleaned)
         return m.group(1).strip() if m else None
 
     def extract_hq_hint(self, title: str, summary: str) -> str | None:
