@@ -33,7 +33,10 @@ jobs:
           SCOUT_LOOKBACK_DAYS: "7"
         run: scout run
 
-      - name: Commit digest
+      - name: Regenerate dashboard
+        run: scout dashboard
+
+      - name: Commit digest + dashboard
         run: |
           git config user.name "scout-bot"
           git config user.email "scout-bot@users.noreply.github.com"
@@ -41,6 +44,6 @@ jobs:
           # so day-to-day experiments don't pollute the repo, but CI commits
           # them so digests are durable and scout.db carries idempotency state
           # forward to the next run.
-          git add -f digests/*.md scout.db 2>/dev/null || true
+          git add -f digests/*.md scout.db docs/index.html 2>/dev/null || true
           git diff --cached --quiet || git commit -m "digest: $(date -u +%Y-%m-%d)"
           git push

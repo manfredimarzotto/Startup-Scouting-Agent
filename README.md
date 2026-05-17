@@ -116,8 +116,25 @@ just a `name` attribute and `fetch(lookback_days)` that yields `FundingEvent`.
 ## GitHub Actions
 
 `.github/workflows/daily.yml` runs `scout run` every weekday at 07:00 UTC,
-commits the digest and updated DB back to the repo. Set `ANTHROPIC_API_KEY` as
-a repo secret.
+commits the digest, the updated DB, and a regenerated dashboard back to
+the repo. Set `ANTHROPIC_API_KEY` as a repo secret.
+
+## Dashboard
+
+Every workflow run regenerates `docs/index.html` from `scout.db` — a single
+self-contained dark-mode page with every company ever scored, sortable by
+any column, filterable by stage, score, and CFO presence. No build step,
+no framework, no external deps.
+
+**To publish it via GitHub Pages:** repo → Settings → Pages → Source: "Deploy
+from a branch" → Branch: `main` / `docs` → Save. After the next workflow
+run the dashboard lives at `https://<owner>.github.io/<repo>/`.
+
+Regenerate locally any time:
+```bash
+scout dashboard          # writes docs/index.html from scout.db
+open docs/index.html
+```
 
 ## Roadmap (not in v1)
 
