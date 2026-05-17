@@ -64,3 +64,18 @@ def test_blacklist_keeps_real_names_with_generic_words():
 def test_all_caps_short_acronyms_dropped():
     # "UK raises £5M" would extract "UK" — clearly a country code, not a co.
     assert _name("UK raises £5M for AI safety institute") is None
+
+
+def test_run_6_garbage_dropped():
+    # New garbage that surfaced in run #6 (post first blacklist):
+    # "London", "UK AgriBioTech", "Fresh People".
+    assert _name("London raises £5M for AI safety institute") is None
+    assert _name("UK AgriBioTech secures £10M Series A") == "AgriBioTech"
+    assert _name("Fresh People announces $5M funding") is None
+
+
+def test_geo_prefix_stripped_from_multiword():
+    # Leading geo / sector descriptors get stripped when there's still a
+    # real name behind them.
+    assert _name("London Fintech Apricot raises $5M") == "Apricot"
+    assert _name("Berlin Climate Lovable raises €25M") == "Lovable"

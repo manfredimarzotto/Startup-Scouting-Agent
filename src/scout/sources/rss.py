@@ -77,19 +77,42 @@ _NAME_PATTERNS = [
 # Names matching these (case-insensitive, whole-string) get dropped before
 # we waste a Haiku call on them. Learned from real first-run garbage:
 # "Marketing", "HTGF Family Day", "Anthropic" (when mentioned, not raising),
-# "Sheryl Sandberg-backed", "UK EdTech Multiverse", etc.
+# "Sheryl Sandberg-backed", "UK EdTech Multiverse", "London", "Fresh People".
 _NAME_BLACKLIST = frozenset({
     # Generic English words that match the capitalized-start pattern
     "the", "this", "that", "two", "three", "four", "five",
     "why", "how", "when", "what", "who", "where", "which",
     "marketing", "construction", "fintech", "healthtech", "edtech", "proptech",
     "founder", "founders", "startup", "scaleup", "company", "firm",
+    "fresh", "fresh people",
     # Geo / sector descriptor prefixes that shouldn't stand alone
     "uk", "us", "eu", "european", "british", "ai", "tech", "deep tech",
+    # Cities — common as subjects of news headlines, not as company names
+    # when extracted in isolation
+    "london", "paris", "berlin", "amsterdam", "stockholm", "dublin",
+    "madrid", "milan", "rome", "munich", "barcelona", "zurich",
+    "copenhagen", "oslo", "helsinki", "warsaw", "prague", "lisbon",
+    "vienna", "brussels", "tel aviv", "san francisco", "new york",
     # Investor / VC firms that show up in fundraise headlines
     "anthropic", "openai", "google", "microsoft", "apple", "meta",
     "robinhood", "stripe", "lightrock", "sequoia", "accel", "index", "atomico",
     "htgf family day", "techcrunch", "sifted",
+})
+
+
+# Geo / sector descriptor words that should be stripped from the START of an
+# extracted candidate. "UK AgriBioTech" -> "AgriBioTech", "London Fintech X"
+# -> "Fintech X". This catches the cases the prefix-strip regex misses
+# because they don't have "-based" / "'s" / "startup" markers.
+_LEADING_DESCRIPTORS = frozenset({
+    "uk", "us", "eu", "european", "british", "german", "french", "dutch",
+    "swedish", "danish", "spanish", "italian", "irish",
+    "london", "paris", "berlin", "amsterdam", "stockholm", "dublin",
+    "madrid", "milan", "rome", "munich", "barcelona", "zurich",
+    "copenhagen", "oslo", "helsinki", "warsaw", "prague", "lisbon",
+    "vienna", "brussels",
+    "ai", "fintech", "healthtech", "edtech", "proptech", "deeptech",
+    "climate", "biotech",
 })
 
 
@@ -205,6 +228,14 @@ class RSSSource:
 
         if candidate is None:
             return None
+
+        # Strip leading geo / sector descriptors if the candidate is multi-word.
+        # "UK AgriBioTech" -> "AgriBioTech", "London Fintech Apricot" -> "Fintech Apricot"
+        # -> "Apricot" (loop applies repeatedly until no more strip).
+        words = candidate.split()
+        while len(words) >= 2 and words[0].lower() in _LEADING_DESCRIPTORS:
+            words = words[1:]
+        candidate = " ".join(words)
 
         # Reject obvious garbage. Saves Haiku tokens and stops the dashboard
         # filling with non-companies.

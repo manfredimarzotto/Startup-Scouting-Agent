@@ -7,6 +7,7 @@ so the mock end-to-end run still works.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 from pathlib import Path
@@ -14,13 +15,25 @@ from typing import Any
 
 import anthropic
 import yaml
+from pydantic import ValidationError
 
+from scout.enrichment.claude import _extract_json  # reuse the JSON extractor
 from scout.models import CompanyEnrichment, CompanyScore, FundingEvent
 
 log = logging.getLogger("scout.scoring.rubric")
 
 _HAIKU = "claude-haiku-4-5"
 _PROMPTS_DIR = Path(__file__).resolve().parents[3] / "prompts"
+
+
+_JSON_OUTPUT_INSTRUCTION = """
+Return ONLY a JSON object (no prose, no markdown fence) with these fields:
+  finance_gap_score (integer 0-10)
+  personal_fit_score (integer 0-10)
+  reachability_score (integer 0-5)
+  rationale (string)
+  suggested_outreach_angle (string)
+"""
 
 
 def score_company(
@@ -33,12 +46,12 @@ def score_company(
         return _heuristic_score(enrichment, fit_profile)
 
     client = client or anthropic.Anthropic(timeout=30.0)
-    system_prompt = (_PROMPTS_DIR / "scoring.md").read_text()
+    system_prompt = (_PROMPTS_DIR / "scoring.md").read_text() + _JSON_OUTPUT_INSTRUCTION
 
     user_blob = _format_inputs(event, enrichment, fit_profile)
 
     try:
-        response = client.messages.parse(
+        response = client.messages.create(
             model=_HAIKU,
             max_tokens=800,
             system=[
@@ -54,7 +67,6 @@ def score_company(
                 },
             ],
             messages=[{"role": "user", "content": user_blob}],
-            output_format=CompanyScore,
         )
     except anthropic.BadRequestError as exc:
         log.warning(
@@ -71,7 +83,18 @@ def score_company(
         )
         return _heuristic_score(enrichment, fit_profile)
 
-    score = response.parsed_output or _heuristic_score(enrichment, fit_profile)
+    text = "".join(b.text for b in response.content if b.type == "text")
+    try:
+        json_text = _extract_json(text)
+        score = CompanyScore.model_validate_json(json_text)
+    except (json.JSONDecodeError, ValidationError) as exc:
+        log.warning(
+            "scoring JSON parse failed for %s: %s. Raw text: %s",
+            enrichment.company_name,
+            type(exc).__name__,
+            text[:200],
+        )
+        return _heuristic_score(enrichment, fit_profile)
 
     # Enforce the "CFO present -> cap finance gap at 6" rule even if the LLM ignored it.
     if enrichment.has_senior_finance_leader is True and score.finance_gap_score > 6:

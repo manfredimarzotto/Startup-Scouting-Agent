@@ -1,16 +1,24 @@
 """Per-company enrichment via Claude Haiku, with offline heuristic fallback.
 
-The fallback exists so the end-to-end mock run works in CI / without an API key.
+We use plain messages.create() and parse JSON client-side rather than the
+structured-outputs API. Structured outputs rejected our 15-field schema as
+"too complex" (run #6 log) — the prompted-JSON path bypasses that limit
+entirely and is what most production Anthropic code does anyway.
+
+The heuristic fallback exists so the end-to-end mock run works in CI / without
+an API key.
 """
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import re
 from pathlib import Path
 
 import anthropic
+from pydantic import ValidationError
 
 from scout.enrichment.careers import CareersSignals
 from scout.models import CompanyEnrichment, FundingEvent
@@ -25,6 +33,26 @@ def _load_prompt(name: str) -> str:
     return (_PROMPTS_DIR / name).read_text()
 
 
+_JSON_OUTPUT_INSTRUCTION = """
+Return ONLY a JSON object (no prose, no markdown fence) with these fields:
+  company_name (string)
+  hq_city (string or null)
+  hq_country (string or null)
+  stage (one of: pre-seed, seed, series_a, series_b, series_c+, unknown)
+  round_amount_usd (integer or null)
+  total_raised_usd (integer or null)
+  lead_investor (string or null)
+  other_investors (array of strings)
+  sector (string or null)
+  founder_background (one of: technical, commercial, mixed, unknown)
+  has_senior_finance_leader (true, false, or null)
+  senior_finance_leader_name (string or null)
+  open_finance_roles (array of strings)
+  finance_maturity_score (integer 1-5)
+  notes (string or null)
+"""
+
+
 def enrich_with_claude(
     event: FundingEvent,
     careers: CareersSignals | None = None,
@@ -34,15 +62,13 @@ def enrich_with_claude(
     if not os.environ.get("ANTHROPIC_API_KEY"):
         return heuristic_enrich(event, careers)
 
-    # Per-call timeout + zero retries on 4xx (still retries 5xx by default).
-    # Without this a bad-schema 400 can hang for minutes before falling back.
     client = client or anthropic.Anthropic(timeout=30.0)
-    system_prompt = _load_prompt("enrichment.md")
+    system_prompt = _load_prompt("enrichment.md") + _JSON_OUTPUT_INSTRUCTION
 
     user_blob = _format_inputs(event, careers)
 
     try:
-        response = client.messages.parse(
+        response = client.messages.create(
             model=_HAIKU,
             max_tokens=1500,
             system=[
@@ -53,11 +79,8 @@ def enrich_with_claude(
                 }
             ],
             messages=[{"role": "user", "content": user_blob}],
-            output_format=CompanyEnrichment,
         )
     except anthropic.BadRequestError as exc:
-        # 400s are usually schema problems — surface the API's message so the
-        # next failure of a different shape is debuggable from logs alone.
         log.warning(
             "enrichment 400 for %s: %s", event.company_name, _short_error(exc)
         )
@@ -71,13 +94,42 @@ def enrich_with_claude(
         )
         return heuristic_enrich(event, careers)
 
-    return response.parsed_output or heuristic_enrich(event, careers)
+    text = "".join(b.text for b in response.content if b.type == "text")
+    try:
+        json_text = _extract_json(text)
+        return CompanyEnrichment.model_validate_json(json_text)
+    except (json.JSONDecodeError, ValidationError) as exc:
+        log.warning(
+            "enrichment JSON parse failed for %s: %s. Raw text: %s",
+            event.company_name,
+            type(exc).__name__,
+            text[:200],
+        )
+        return heuristic_enrich(event, careers)
 
 
 def _short_error(exc: Exception) -> str:
     """First line of the exception message, truncated. Keeps logs scannable."""
     msg = str(exc).strip().splitlines()[0] if str(exc).strip() else type(exc).__name__
     return msg[:300]
+
+
+def _extract_json(text: str) -> str:
+    """Pull a JSON object out of the model's response.
+
+    Tolerates: pure JSON, JSON in a ```json fence, JSON with prose around it.
+    """
+    text = text.strip()
+    # Fenced code block (with or without "json" language hint)
+    m = re.search(r"```(?:json)?\s*(\{[\s\S]*?\})\s*```", text)
+    if m:
+        return m.group(1)
+    # Bare JSON object — greedy match for the outermost braces
+    start = text.find("{")
+    end = text.rfind("}")
+    if start != -1 and end > start:
+        return text[start : end + 1]
+    return text  # let json.loads fail with a useful message
 
 
 def _format_inputs(event: FundingEvent, careers: CareersSignals | None) -> str:
