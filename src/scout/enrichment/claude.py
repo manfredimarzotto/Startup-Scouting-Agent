@@ -5,6 +5,7 @@ The fallback exists so the end-to-end mock run works in CI / without an API key.
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 from pathlib import Path
@@ -13,6 +14,8 @@ import anthropic
 
 from scout.enrichment.careers import CareersSignals
 from scout.models import CompanyEnrichment, FundingEvent
+
+log = logging.getLogger("scout.enrichment.claude")
 
 _HAIKU = "claude-haiku-4-5"
 _PROMPTS_DIR = Path(__file__).resolve().parents[3] / "prompts"
@@ -31,7 +34,9 @@ def enrich_with_claude(
     if not os.environ.get("ANTHROPIC_API_KEY"):
         return heuristic_enrich(event, careers)
 
-    client = client or anthropic.Anthropic()
+    # Per-call timeout + zero retries on 4xx (still retries 5xx by default).
+    # Without this a bad-schema 400 can hang for minutes before falling back.
+    client = client or anthropic.Anthropic(timeout=30.0)
     system_prompt = _load_prompt("enrichment.md")
 
     user_blob = _format_inputs(event, careers)
@@ -50,10 +55,29 @@ def enrich_with_claude(
             messages=[{"role": "user", "content": user_blob}],
             output_format=CompanyEnrichment,
         )
-    except Exception:
+    except anthropic.BadRequestError as exc:
+        # 400s are usually schema problems — surface the API's message so the
+        # next failure of a different shape is debuggable from logs alone.
+        log.warning(
+            "enrichment 400 for %s: %s", event.company_name, _short_error(exc)
+        )
+        return heuristic_enrich(event, careers)
+    except Exception as exc:
+        log.warning(
+            "enrichment failed for %s: %s: %s",
+            event.company_name,
+            type(exc).__name__,
+            _short_error(exc),
+        )
         return heuristic_enrich(event, careers)
 
     return response.parsed_output or heuristic_enrich(event, careers)
+
+
+def _short_error(exc: Exception) -> str:
+    """First line of the exception message, truncated. Keeps logs scannable."""
+    msg = str(exc).strip().splitlines()[0] if str(exc).strip() else type(exc).__name__
+    return msg[:300]
 
 
 def _format_inputs(event: FundingEvent, careers: CareersSignals | None) -> str:

@@ -7,6 +7,7 @@ so the mock end-to-end run still works.
 
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
 from typing import Any
@@ -15,6 +16,8 @@ import anthropic
 import yaml
 
 from scout.models import CompanyEnrichment, CompanyScore, FundingEvent
+
+log = logging.getLogger("scout.scoring.rubric")
 
 _HAIKU = "claude-haiku-4-5"
 _PROMPTS_DIR = Path(__file__).resolve().parents[3] / "prompts"
@@ -29,7 +32,7 @@ def score_company(
     if not os.environ.get("ANTHROPIC_API_KEY"):
         return _heuristic_score(enrichment, fit_profile)
 
-    client = client or anthropic.Anthropic()
+    client = client or anthropic.Anthropic(timeout=30.0)
     system_prompt = (_PROMPTS_DIR / "scoring.md").read_text()
 
     user_blob = _format_inputs(event, enrichment, fit_profile)
@@ -53,7 +56,19 @@ def score_company(
             messages=[{"role": "user", "content": user_blob}],
             output_format=CompanyScore,
         )
-    except Exception:
+    except anthropic.BadRequestError as exc:
+        log.warning(
+            "scoring 400 for %s: %s",
+            enrichment.company_name,
+            str(exc).splitlines()[0][:300] if str(exc).strip() else "BadRequestError",
+        )
+        return _heuristic_score(enrichment, fit_profile)
+    except Exception as exc:
+        log.warning(
+            "scoring failed for %s: %s",
+            enrichment.company_name,
+            type(exc).__name__,
+        )
         return _heuristic_score(enrichment, fit_profile)
 
     score = response.parsed_output or _heuristic_score(enrichment, fit_profile)

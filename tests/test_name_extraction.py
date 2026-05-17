@@ -41,3 +41,26 @@ def test_fallback_returns_first_capitalized_phrase():
     result = _name("Apricot raised funding from Sequoia, sources say")
     assert result is not None
     assert "Apricot" in result
+
+
+def test_blacklist_drops_garbage_from_real_run():
+    # Names that actually surfaced in run #5 and wasted Haiku calls.
+    assert _name("Marketing X raises $5M Series A") is None
+    assert _name("Two startups raised funding this week") is None
+    assert _name("HTGF Family Day connected startups with VCs") is None
+    # "-backed" headlines are editorial framing, not fundraises
+    assert _name("Sheryl Sandberg-backed startup raises $50M") is None
+    # VCs / big tech mentioned in fundraise context shouldn't be extracted
+    # as the fundraise subject
+    assert _name("Lightrock leads $20M round in green tech") is None
+
+
+def test_blacklist_keeps_real_names_with_generic_words():
+    # Stripe, Notion etc. are common words but ARE real company names.
+    # Make sure the blacklist isn't over-aggressive on multi-word names.
+    assert _name("Stripe Climate raises $50M Series B") == "Stripe Climate"
+
+
+def test_all_caps_short_acronyms_dropped():
+    # "UK raises £5M" would extract "UK" — clearly a country code, not a co.
+    assert _name("UK raises £5M for AI safety institute") is None
