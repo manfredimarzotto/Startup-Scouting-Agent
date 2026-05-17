@@ -5,10 +5,20 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 Stage = Literal["pre-seed", "seed", "series_a", "series_b", "series_c+", "unknown"]
 FounderBackground = Literal["technical", "commercial", "mixed", "unknown"]
+
+
+# Pydantic's ge/le constraints translate to JSON Schema minimum/maximum,
+# which the Anthropic structured-outputs API rejects with a 400. We strip
+# constraints from the schema and clamp the values client-side via
+# field_validators below.
+
+
+def _clamp(v: int, lo: int, hi: int) -> int:
+    return max(lo, min(hi, v))
 
 
 class FundingEvent(BaseModel):
@@ -44,18 +54,33 @@ class CompanyEnrichment(BaseModel):
     has_senior_finance_leader: bool | None = None
     senior_finance_leader_name: str | None = None
     open_finance_roles: list[str] = Field(default_factory=list)
-    finance_maturity_score: int = Field(default=3, ge=1, le=5)
+    finance_maturity_score: int = 3
     notes: str | None = None
+
+    @field_validator("finance_maturity_score")
+    @classmethod
+    def _clamp_maturity(cls, v: int) -> int:
+        return _clamp(v, 1, 5)
 
 
 class CompanyScore(BaseModel):
     """Output of the scoring step."""
 
-    finance_gap_score: int = Field(ge=0, le=10)
-    personal_fit_score: int = Field(ge=0, le=10)
-    reachability_score: int = Field(ge=0, le=5)
+    finance_gap_score: int = 0
+    personal_fit_score: int = 0
+    reachability_score: int = 0
     rationale: str
     suggested_outreach_angle: str
+
+    @field_validator("finance_gap_score", "personal_fit_score")
+    @classmethod
+    def _clamp_0_10(cls, v: int) -> int:
+        return _clamp(v, 0, 10)
+
+    @field_validator("reachability_score")
+    @classmethod
+    def _clamp_0_5(cls, v: int) -> int:
+        return _clamp(v, 0, 5)
 
     @property
     def composite(self) -> float:

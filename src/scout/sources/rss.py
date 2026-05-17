@@ -73,6 +73,33 @@ _NAME_PATTERNS = [
 ]
 
 
+# Things that look like capitalized phrases but aren't company names.
+# Names matching these (case-insensitive, whole-string) get dropped before
+# we waste a Haiku call on them. Learned from real first-run garbage:
+# "Marketing", "HTGF Family Day", "Anthropic" (when mentioned, not raising),
+# "Sheryl Sandberg-backed", "UK EdTech Multiverse", etc.
+_NAME_BLACKLIST = frozenset({
+    # Generic English words that match the capitalized-start pattern
+    "the", "this", "that", "two", "three", "four", "five",
+    "why", "how", "when", "what", "who", "where", "which",
+    "marketing", "construction", "fintech", "healthtech", "edtech", "proptech",
+    "founder", "founders", "startup", "scaleup", "company", "firm",
+    # Geo / sector descriptor prefixes that shouldn't stand alone
+    "uk", "us", "eu", "european", "british", "ai", "tech", "deep tech",
+    # Investor / VC firms that show up in fundraise headlines
+    "anthropic", "openai", "google", "microsoft", "apple", "meta",
+    "robinhood", "stripe", "lightrock", "sequoia", "accel", "index", "atomico",
+    "htgf family day", "techcrunch", "sifted",
+})
+
+
+# Phrases inside an extracted candidate that mean it's a descriptor, not a
+# company name (e.g. "Sheryl Sandberg-backed", "HTGF Family Day"). Checked
+# against the candidate AFTER extraction, not the title — real fundraise
+# headlines routinely contain "from", "led by", etc.
+_PHRASE_DISQUALIFIERS = ("-backed", "backed", "family day", "led by")
+
+
 class RSSSource:
     """Base class. Sets `name` and `url` on subclasses."""
 
@@ -156,24 +183,43 @@ class RSSSource:
 
         Tries multiple patterns; falls back to the first capitalized phrase
         after stripping common prefixes ("London's ...", "Berlin-based ...",
-        "<adj> startup ..."). Returning a permissive name is fine — Haiku
-        enrichment corrects it downstream, and the geo/score stages use the
-        enriched value not this one.
+        "<adj> startup ..."). Names that look like obvious garbage (common
+        English words, sector descriptors, well-known VCs/big tech) are
+        rejected outright rather than passed to Haiku.
         """
         # Strip leading geo / descriptor prefix so the name patterns see the
         # actual subject of the sentence.
         cleaned = _NAME_PREFIX_STRIP.sub("", title)
 
+        candidate: str | None = None
         for pattern in _NAME_PATTERNS:
             m = pattern.search(cleaned)
             if m:
-                return m.group(1).strip()
+                candidate = m.group(1).strip()
+                break
 
-        # Last-resort fallback: first capitalized phrase in the cleaned title.
-        # Better to surface a slightly-wrong name and let Haiku correct it
-        # than to drop the event entirely.
-        m = re.match(r"([A-Z][\w&\.\-]+(?:\s+[A-Z][\w&\.\-]+){0,2})", cleaned)
-        return m.group(1).strip() if m else None
+        if candidate is None:
+            # Last-resort fallback: first capitalized phrase in the cleaned title.
+            m = re.match(r"([A-Z][\w&\.\-]+(?:\s+[A-Z][\w&\.\-]+){0,2})", cleaned)
+            candidate = m.group(1).strip() if m else None
+
+        if candidate is None:
+            return None
+
+        # Reject obvious garbage. Saves Haiku tokens and stops the dashboard
+        # filling with non-companies.
+        lowered_candidate = candidate.lower()
+        if lowered_candidate in _NAME_BLACKLIST:
+            return None
+        # Descriptor phrases that show up captured but aren't company names.
+        if any(p in lowered_candidate for p in _PHRASE_DISQUALIFIERS):
+            return None
+        # All-uppercase short tokens are usually acronyms (UK, EU, AI, HTGF)
+        # not company names.
+        if len(candidate) <= 4 and candidate.isupper():
+            return None
+
+        return candidate
 
     def extract_hq_hint(self, title: str, summary: str) -> str | None:
         """Default: look for common European city/country mentions in title+summary."""
