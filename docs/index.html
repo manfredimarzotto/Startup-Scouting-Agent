@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Startup Scout — finance opportunities</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #7d8590;
+    --accent: #58a6ff;
+    --good: #3fb950;
+    --warn: #d29922;
+    --bad: #f85149;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px 32px; font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--text);
+  }
+  h1 { margin: 0 0 4px; font-size: 22px; font-weight: 600; }
+  .subtitle { color: var(--muted); margin-bottom: 24px; font-size: 13px; }
+  .controls {
+    display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px;
+    position: sticky; top: 0; padding: 16px 0; background: var(--bg); z-index: 10;
+  }
+  input, select {
+    background: var(--surface); border: 1px solid var(--border); color: var(--text);
+    padding: 8px 12px; border-radius: 6px; font-size: 13px;
+  }
+  input[type=search] { width: 280px; }
+  input:focus, select:focus { outline: none; border-color: var(--accent); }
+  .count { color: var(--muted); padding: 8px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th {
+    background: var(--surface); cursor: pointer; user-select: none; font-weight: 600;
+    position: sticky; top: 64px; z-index: 5;
+  }
+  th:hover { color: var(--accent); }
+  th.sort-asc::after { content: " \2191"; color: var(--accent); }
+  th.sort-desc::after { content: " \2193"; color: var(--accent); }
+  tr:hover td { background: var(--surface); }
+  td.composite { font-weight: 600; font-size: 15px; text-align: right; font-variant-numeric: tabular-nums; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .pill {
+    display: inline-block; padding: 2px 8px; border-radius: 10px;
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+  }
+  .pill-series_a { background: #1f6feb33; color: #79c0ff; }
+  .pill-series_b { background: #a371f733; color: #d2a8ff; }
+  .pill-seed     { background: #3fb95033; color: #7ce38b; }
+  .pill-pre-seed { background: #d2992233; color: #e3b341; }
+  .pill-series_c\+ { background: #f8514933; color: #ff7b72; }
+  .pill-unknown  { background: #30363d; color: var(--muted); }
+  .pill-cfo      { background: #f8514922; color: #ff7b72; margin-left: 6px; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .rationale { color: var(--muted); max-width: 480px; font-size: 12px; }
+  details { margin-top: 6px; }
+  summary { cursor: pointer; color: var(--accent); font-size: 12px; }
+  .empty { padding: 40px; text-align: center; color: var(--muted); }
+</style>
+</head>
+<body>
+<h1>Startup Scout — finance opportunities</h1>
+<div class="subtitle">13 companies tracked · last updated 2026-05-18 11:42 UTC · <a href="https://github.com/manfredimarzotto/Startup-Scouting-Agent/tree/main/digests">browse daily digests →</a></div>
+
+<div class="controls">
+  <input type="search" id="search" placeholder="Search company, sector, investor, rationale…">
+  <select id="stage">
+    <option value="">All stages</option>
+    <option value="series_a">Series A</option>
+    <option value="series_b">Series B</option>
+    <option value="seed">Seed</option>
+    <option value="pre-seed">Pre-seed</option>
+    <option value="series_c+">Series C+</option>
+    <option value="unknown">Unknown</option>
+  </select>
+  <select id="min-score">
+    <option value="0">All scores</option>
+    <option value="5">≥ 5.0</option>
+    <option value="6">≥ 6.0</option>
+    <option value="7">≥ 7.0</option>
+    <option value="8">≥ 8.0</option>
+  </select>
+  <select id="cfo">
+    <option value="">CFO: any</option>
+    <option value="no">No senior finance leader</option>
+    <option value="yes">Has CFO (capped)</option>
+  </select>
+</div>
+
+<div class="count" id="count"></div>
+
+<table id="grid">
+  <thead>
+    <tr>
+      <th data-key="composite" data-num="1">Composite</th>
+      <th data-key="company">Company</th>
+      <th data-key="stage">Stage</th>
+      <th data-key="hq_country">HQ</th>
+      <th data-key="lead_investor">Lead investor</th>
+      <th data-key="finance_gap" data-num="1">Fin gap</th>
+      <th data-key="personal_fit" data-num="1">Fit</th>
+      <th data-key="reachability" data-num="1">Reach</th>
+      <th>Rationale</th>
+      <th data-key="announced_date">Announced</th>
+    </tr>
+  </thead>
+  <tbody id="rows"></tbody>
+</table>
+
+<div class="empty" id="empty" style="display:none">No companies match the current filters.</div>
+
+<script>
+const DATA = [{"company": "Cosmico", "composite": 6.8, "finance_gap": 7, "personal_fit": 8, "reachability": 1, "stage": "series_b", "round_usd": 12000000, "hq_city": "Milan", "hq_country": "", "sector": "", "lead_investor": "", "founder_background": "unknown", "has_cfo": false, "rationale": "Cosmico is a Series B AI-native talent marketplace based in Milan that just closed \u20ac12M, hitting the sweet-spot round size and stage. The enrichment lacks senior finance leader data, but Series B AI-native SaaS companies typically need strong finance infrastructure post-Series A. The candidate's M&A banking background in vertical SaaS, combined with active AI angel investing and interim CFO advisory experience, maps exceptionally well to the company's sector and growth phase. Italian headquarters and the candidate's Italian tech ecosystem ties add meaningful alignment.", "outreach_angle": "Research P101 SGR and other Series B co-investors to identify warm intros; if none emerge, lead with the AI + vertical SaaS + M&A-to-CFO narrative and Cosmico's Milan base as a personal + professional fit for building finance infrastructure post-acquisition.", "announcement_url": "https://techfundingnews.com/cosmico-12m-series-b-p101-future-of-work-flatmates-acquisition/", "linkedin_company": "https://www.linkedin.com/search/results/companies/?keywords=Cosmico", "linkedin_finance": "https://www.linkedin.com/search/results/people/?keywords=%22Cosmico%22+%28%22CFO%22+OR+%22Head+of+Finance%22+OR+%22VP+Finance%22+OR+%22Strategic+Finance%22%29", "source": "tech_funding_news", "announced_date": "2026-05-18"}, {"company": "Searchable", "composite": 6.8, "finance_gap": 7, "personal_fit": 8, "reachability": 1, "stage": "unknown", "round_usd": 10300000, "hq_city": "London", "hq_country": "", "sector": "", "lead_investor": "", "founder_background": "unknown", "has_cfo": false, "rationale": "Searchable is an AI-native SaaS platform at a strong growth stage (\u00a310.3m / ~$13m raise) with no identified senior finance leader in place, creating a clear gap for an experienced financial operator. The candidate's background in M&A banking covering SaaS, combined with active AI angel investing and interim CFO experience, maps directly to this company's profile and stage. However, enrichment data is incomplete on lead investor and founder background, limiting warm-intro pathways beyond London geography alignment.", "outreach_angle": "Reach out directly on LinkedIn positioning the M&A banking + AI investor background as ideal for building financial infrastructure at this critical post-raise growth phase, with emphasis on unit economics and competitive positioning in the AI-search vertical.", "announcement_url": "https://www.uktech.news/ai/searchable-secures-10-3m-to-boost-its-ai-performance-marketing-platform-20260518", "linkedin_company": "https://www.linkedin.com/search/results/companies/?keywords=Searchable", "linkedin_finance": "https://www.linkedin.com/search/results/people/?keywords=%22Searchable%22+%28%22CFO%22+OR+%22Head+of+Finance%22+OR+%22VP+Finance%22+OR+%22Strategic+Finance%22%29", "source": "uktn", "announced_date": "2026-05-18"}, {"company": "Cosmico", "composite": 6.2, "finance_gap": 7, "personal_fit": 6, "reachability": 1, "stage": "series_b", "round_usd": 12000000, "hq_city": "Milan", "hq_country": "", "sector": "", "lead_investor": "", "founder_background": "unknown", "has_cfo": false, "rationale": "Cosmico is a Milan-based Series B company that has just raised \u20ac12M, positioning it in the sweet-spot range for this candidate's stage preference. The heuristic enrichment is sparse, but the Series B timing combined with unknown senior finance leadership and a finance_maturity_score of 1 suggests a genuine gap for a strategic finance hire or CFO-track role. The candidate's M&A banking background in vertical SaaS and PropTech, plus Italian tech ecosystem ties, creates a natural fit for a future-of-work platform scaling post-Series A.", "outreach_angle": "Manfredi's Italian heritage and Milan base make Cosmico a natural geographic and cultural fit\u2014position the outreach via Italian tech networks or local founders' circles, and lead with how his vertical SaaS M&A playbook translates to scaling the finance function from Series B onward.", "announcement_url": "https://tech.eu/2026/05/18/cosmico-raises-eur12m-in-series-b-round/", "linkedin_company": "https://www.linkedin.com/search/results/companies/?keywords=Cosmico", "linkedin_finance": "https://www.linkedin.com/search/results/people/?keywords=%22Cosmico%22+%28%22CFO%22+OR+%22Head+of+Finance%22+OR+%22VP+Finance%22+OR+%22Strategic+Finance%22%29", "source": "tech_eu", "announced_date": "2026-05-18"}, {"company": "LawX", "composite": 5.4, "finance_gap": 7, "personal_fit": 4, "reachability": 0, "stage": "seed", "round_usd": 7500000, "hq_city": "Berlin", "hq_country": "", "sector": "", "lead_investor": "", "founder_background": "unknown", "has_cfo": false, "rationale": "LawX raised \u20ac7.5M (~$8.1M USD) in Seed funding to build an AI-powered OS for legal professionals\u2014a deeply regulated sector outside the candidate's core sector depth. The company is at the right stage and round size for a first finance hire, but legal tech and regulatory compliance are explicitly in the low_or_avoid category. No senior finance leader is identified, creating a genuine finance gap, but the sector mismatch is material.", "outreach_angle": "Pass on this opportunity unless the candidate has unexpected regulatory or legal-tech domain experience; the sector profile does not align with stated high-conviction areas (AI-native SaaS, vertical SaaS, PropTech, etc.).", "announcement_url": "https://www.eu-startups.com/2026/05/berlin-based-lawx-raises-e7-5-million-to-build-an-ai-powered-operating-system-for-notaries-and-law-firms/", "linkedin_company": "https://www.linkedin.com/search/results/companies/?keywords=LawX", "linkedin_finance": "https://www.linkedin.com/search/results/people/?keywords=%22LawX%22+%28%22CFO%22+OR+%22Head+of+Finance%22+OR+%22VP+Finance%22+OR+%22Strategic+Finance%22%29", "source": "eu_startups", "announced_date": "2026-05-18"}, {"company": "LawX", "composite": 5.1, "finance_gap": 7, "personal_fit": 3, "reachability": 0, "stage": "seed", "round_usd": 7500000, "hq_city": "Berlin", "hq_country": "", "sector": "", "lead_investor": "", "founder_background": "unknown", "has_cfo": false, "rationale": "LawX is a seed-stage AI legaltech company in Berlin that just raised \u20ac7.5M (~$8.1M USD), well below the sweet-spot minimum of $5\u201350M and positioned in a regulated/specialized sector (legal services). The company is early enough that a finance leader is likely needed, but the sector (deeply regulated legaltech serving law firms) falls outside the candidate's high-conviction areas (vertical SaaS, PropTech, AI-native SaaS) and sits closer to avoided verticals. No senior finance leader is flagged, which is positive; however, enrichment data is incomplete and heuristic, limiting confidence in opportunity fit.", "outreach_angle": "If Berlin represents a genuine expansion hub and LawX's product roadmap emphasizes AI-native workflows (not just compliance automation), position the conversation around building financial infrastructure for a regulated but tech-forward business\u2014but verify sector alignment before outreach, as legaltech is not a core conviction.", "announcement_url": "https://techfundingnews.com/lawx-7-5m-seed-ai-operating-system-german-law-firms/", "linkedin_company": "https://www.linkedin.com/search/results/companies/?keywords=LawX", "linkedin_finance": "https://www.linkedin.com/search/results/people/?keywords=%22LawX%22+%28%22CFO%22+OR+%22Head+of+Finance%22+OR+%22VP+Finance%22+OR+%22Strategic+Finance%22%29", "source": "tech_funding_news", "announced_date": "2026-05-18"}, {"company": "Cosmico", "composite": 5.0, "finance_gap": 5, "personal_fit": 6, "reachability": 1, "stage": "unknown", "round_usd": 12000000, "hq_city": "Milan", "hq_country": "", "sector": "", "lead_investor": "", "founder_background": "unknown", "has_cfo": false, "rationale": "Cosmico is a Milan-based Future of Work platform that just closed a \u20ac12M round, positioning it in the Series A/B range and aligning with the candidate's sector depth (vertical SaaS adjacent). However, the enrichment lacks critical signals: no confirmed senior finance leader status, unclear founder technical background, and unidentified lead investor, making it difficult to assess immediate finance gap with confidence. The Italian location and ecosystem ties are a strong match for the candidate, but the lack of warm investor connections in the disclosed lead (P101 SGR) limits reachability.", "outreach_angle": "Reach out to Cosmico's founding team directly via LinkedIn, highlighting your M&A banking expertise in workplace/Future of Work verticals and your Italian tech ecosystem roots\u2014position as an early finance operator to support the Flatmates integration and scale the platform.", "announcement_url": "https://www.eu-startups.com/2026/05/milan-based-cosmico-raises-e12-million-acquires-flatmates-to-expand-future-of-work-platform/", "linkedin_company": "https://www.linkedin.com/search/results/companies/?keywords=Cosmico", "linkedin_finance": "https://www.linkedin.com/search/results/people/?keywords=%22Cosmico%22+%28%22CFO%22+OR+%22Head+of+Finance%22+OR+%22VP+Finance%22+OR+%22Strategic+Finance%22%29", "source": "eu_startups", "announced_date": "2026-05-18"}, {"company": "LawX", "composite": 4.8, "finance_gap": 7, "personal_fit": 2, "reachability": 0, "stage": "seed", "round_usd": 7500000, "hq_city": "Berlin", "hq_country": "", "sector": "", "lead_investor": "", "founder_background": "unknown", "has_cfo": false, "rationale": "LawX is a Berlin-based legaltech at seed stage with \u20ac7.5M raised\u2014below the candidate's sweet spot (\u20ac5\u201350M) but still a reasonable early-stage opportunity. The company has no identified senior finance leader and is at a stage where a strategic finance hire or founder's associate would add value. However, legaltech is a deeply regulated / compliance-heavy sector that sits outside the candidate's stated high-depth areas (AI-native SaaS, vertical SaaS, PropTech, ConTech, fintech infra), which significantly weakens personal fit. Lead investor and cap table remain unconfirmed in the enrichment.", "outreach_angle": "If LawX's lead investor (Motive Partners or one of the co-investors) has a warm connection to you, a soft inquiry about their vision for finance ops would be worth testing\u2014but legaltech regulation complexity is a mismatch for your sector focus, so deprioritize versus AI-native or vertical SaaS opportunities.", "announcement_url": "https://tech.eu/2026/05/18/lawx-raises-eur75m-to-build-europes-legal-operating-system/", "linkedin_company": "https://www.linkedin.com/search/results/companies/?keywords=LawX", "linkedin_finance": "https://www.linkedin.com/search/results/people/?keywords=%22LawX%22+%28%22CFO%22+OR+%22Head+of+Finance%22+OR+%22VP+Finance%22+OR+%22Strategic+Finance%22%29", "source": "tech_eu", "announced_date": "2026-05-18"}, {"company": "Elephant Company", "composite": 4.1, "finance_gap": 4, "personal_fit": 5, "reachability": 1, "stage": "unknown", "round_usd": 5000000, "hq_city": "Berlin", "hq_country": "", "sector": "", "lead_investor": "", "founder_background": "unknown", "has_cfo": false, "rationale": "Elephant Company is a Berlin-based AI-powered training platform for frontline workers that has just closed a \u20ac5M (~$5.3M USD) round, placing it at the lower end of the candidate's sweet spot. However, enrichment data is incomplete\u2014no lead investor identified, finance team composition unknown, and sector confidence is low given the 'frontline worker training' focus sits between HR software and general AI SaaS. The company shows early-stage signals (substantial first or second institutional round, technical AI product) but without clarity on existing finance leadership or near-term hiring plans, the finance gap cannot be confidently scored higher.", "outreach_angle": "Research Elephant's finance team composition and lead investor identity via Crunchbase or direct outreach; if EnBW New Ventures or angel backers connect to your warm network (Accel, Index Ventures, Atomico), that becomes a viable entry\u2014otherwise a direct pitch to the founders emphasizing your AI angel experience and M&A expertise in scaling training/HR software would be the first move.", "announcement_url": "https://www.eu-startups.com/2026/05/berlin-based-elephant-company-raises-over-e5-million-to-bring-ai-powered-training-to-frontline-workers/", "linkedin_company": "https://www.linkedin.com/search/results/companies/?keywords=Elephant+Company", "linkedin_finance": "https://www.linkedin.com/search/results/people/?keywords=%22Elephant+Company%22+%28%22CFO%22+OR+%22Head+of+Finance%22+OR+%22VP+Finance%22+OR+%22Strategic+Finance%22%29", "source": "eu_startups", "announced_date": "2026-05-15"}, {"company": "Headline", "composite": 3.0, "finance_gap": 3, "personal_fit": 4, "reachability": 0, "stage": "unknown", "round_usd": 10300000, "hq_city": "London", "hq_country": "", "sector": "", "lead_investor": "", "founder_background": "unknown", "has_cfo": false, "rationale": "Searchable (the company being funded, not Headline the investor) raised \u00a310.3M in London\u2014a strong Series A cheque size\u2014but the enrichment data is severely incomplete: stage, sector, founder background, and finance team composition are all unknown. Without visibility into whether this is an AI-native company, whether founders are technical, or whether a senior finance leader already exists, the finance gap score must be conservative. The heuristic enrichment note indicates data retrieval failed, limiting confidence.", "outreach_angle": "Research Searchable's founding team and sector positioning directly (likely AI search SaaS given the headline); if technical founders and no CFO surface, revisit with a Series A finance hire angle leveraging your M&A expertise.", "announcement_url": "https://techfundingnews.com/searchable-10-3m-funding-headline-ai-search-seo/", "linkedin_company": "https://www.linkedin.com/search/results/companies/?keywords=Headline", "linkedin_finance": "https://www.linkedin.com/search/results/people/?keywords=%22Headline%22+%28%22CFO%22+OR+%22Head+of+Finance%22+OR+%22VP+Finance%22+OR+%22Strategic+Finance%22%29", "source": "tech_funding_news", "announced_date": "2026-05-18"}, {"company": "Copenhagen", "composite": 2.1, "finance_gap": 3, "personal_fit": 1, "reachability": 0, "stage": "unknown", "round_usd": 1500000, "hq_city": "Copenhagen", "hq_country": "", "sector": "", "lead_investor": "", "founder_background": "unknown", "has_cfo": false, "rationale": "Alcolase is a biotech company developing enzyme-based remedies for alcohol intolerance\u2014a deeply regulated sector that falls explicitly into the candidate's low-or-avoid list. The \u20ac1.5M seed round is below the sweet-spot minimum, and the enrichment data is incomplete, making it impossible to assess finance team structure or founder technical background. The sector mismatch alone disqualifies this as a strong fit.", "outreach_angle": "Do not pursue\u2014biotech is outside the candidate's target sectors and regulatory complexity is misaligned with the strategic finance / AI-native startup focus.", "announcement_url": "https://www.eu-startups.com/2026/05/copenhagens-alcolase-secures-e1-5-million-to-develop-enzyme-based-remedy-for-alcohol-flush/", "linkedin_company": "https://www.linkedin.com/search/results/companies/?keywords=Copenhagen", "linkedin_finance": "https://www.linkedin.com/search/results/people/?keywords=%22Copenhagen%22+%28%22CFO%22+OR+%22Head+of+Finance%22+OR+%22VP+Finance%22+OR+%22Strategic+Finance%22%29", "source": "eu_startups", "announced_date": "2026-05-18"}, {"company": "Eighteen48", "composite": 1.5, "finance_gap": 2, "personal_fit": 1, "reachability": 0, "stage": "unknown", "round_usd": 175000000, "hq_city": "London", "hq_country": "", "sector": "", "lead_investor": "", "founder_background": "unknown", "has_cfo": false, "rationale": "Eighteen48 is a PE fund manager raising capital for mid-market buyouts, not a portfolio company seeking finance talent. The candidate is targeting high-growth startups (Series A/B, AI-native SaaS, vertical SaaS) where strategic finance or CFO roles are needed; a PE fund's own finance function operates on a completely different axis (fund accounting, LP relations, deal underwriting). This is a structural mismatch, not a finance-gap opportunity.", "outreach_angle": "Skip this target\u2014Eighteen48 is a PE fund, not a startup hiring for first finance leader or CFO roles. Focus on their portfolio companies once they are publicly identified.", "announcement_url": "https://techfundingnews.com/eighteen48-raises-e175m-first-close-for-its-pe-fund-to-back-mid-market-buyouts-in-europe/", "linkedin_company": "https://www.linkedin.com/search/results/companies/?keywords=Eighteen48", "linkedin_finance": "https://www.linkedin.com/search/results/people/?keywords=%22Eighteen48%22+%28%22CFO%22+OR+%22Head+of+Finance%22+OR+%22VP+Finance%22+OR+%22Strategic+Finance%22%29", "source": "tech_funding_news", "announced_date": "2026-05-15"}, {"company": "Ada Ventures", "composite": 1.2, "finance_gap": 2, "personal_fit": 0, "reachability": 0, "stage": "unknown", "round_usd": 1500000, "hq_city": "Copenhagen", "hq_country": "", "sector": "", "lead_investor": "", "founder_background": "unknown", "has_cfo": false, "rationale": "Alcolase is a biotech company developing an enzyme treatment for alcohol intolerance\u2014a sector explicitly in the candidate's low_or_avoid list (biotech/therapeutics). The \u20ac1.5M round is well below the sweet-spot minimum ($5M USD), and the enrichment provides no evidence of finance leadership gaps or open roles. This is a poor sector and stage fit regardless of geography or investor overlap.", "outreach_angle": "Do not pursue\u2014biotech is outside the candidate's target sectors and round size is too early-stage.", "announcement_url": "https://techfundingnews.com/alcolase-1-5m-aldh2-deficiency-alcohol-intolerance-east-asia/", "linkedin_company": "https://www.linkedin.com/search/results/companies/?keywords=Ada+Ventures", "linkedin_finance": "https://www.linkedin.com/search/results/people/?keywords=%22Ada+Ventures%22+%28%22CFO%22+OR+%22Head+of+Finance%22+OR+%22VP+Finance%22+OR+%22Strategic+Finance%22%29", "source": "tech_funding_news", "announced_date": "2026-05-18"}, {"company": "Lansdowne Partners", "composite": 0.0, "finance_gap": 0, "personal_fit": 0, "reachability": 0, "stage": "unknown", "round_usd": 128900000, "hq_city": "London", "hq_country": "", "sector": "", "lead_investor": "", "founder_background": "unknown", "has_cfo": false, "rationale": "Lansdowne Partners is a venture capital fund, not an operating company seeking finance talent. The enrichment confirms minimal data extraction and no indicators of an active finance hiring need. This is a fund-management entity, not a startup portfolio company.", "outreach_angle": "Not a relevant target \u2014 Lansdowne Partners is a VC fund operator, not a high-growth startup seeking a finance leader or CFO.", "announcement_url": "https://www.eu-startups.com/2026/05/lansdowne-partners-unveils-new-vc-fund-to-turn-uk-university-ip-into-global-companies-hits-e128-9-million-first-close/", "linkedin_company": "https://www.linkedin.com/search/results/companies/?keywords=Lansdowne+Partners", "linkedin_finance": "https://www.linkedin.com/search/results/people/?keywords=%22Lansdowne+Partners%22+%28%22CFO%22+OR+%22Head+of+Finance%22+OR+%22VP+Finance%22+OR+%22Strategic+Finance%22%29", "source": "eu_startups", "announced_date": "2026-05-15"}];
+
+const $ = (id) => document.getElementById(id);
+const search = $("search"), stage = $("stage"), minScore = $("min-score"), cfo = $("cfo");
+const tbody = $("rows"), countEl = $("count"), emptyEl = $("empty");
+
+let sortKey = "composite", sortDir = "desc";
+
+function fmtUsd(n) {
+  if (!n) return "—";
+  if (n >= 1e9) return "$" + (n / 1e9).toFixed(1) + "B";
+  if (n >= 1e6) return "$" + (n / 1e6).toFixed(1) + "M";
+  return "$" + n.toLocaleString();
+}
+
+function escapeHtml(s) {
+  return (s || "").replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
+}
+
+function rowHtml(r) {
+  const stagePill = `<span class="pill pill-${r.stage}">${r.stage.replace("_", " ")}</span>`;
+  const cfoPill = r.has_cfo ? `<span class="pill pill-cfo">CFO present</span>` : "";
+  const hq = [r.hq_city, r.hq_country].filter(Boolean).join(", ") || "—";
+  const lead = r.lead_investor || "—";
+  const round = r.round_usd ? ` · ${fmtUsd(r.round_usd)}` : "";
+  const sector = r.sector ? `<div style="color:var(--muted); font-size:12px">${escapeHtml(r.sector)}${round}</div>` : (round ? `<div style="color:var(--muted); font-size:12px">${round.slice(3)}</div>` : "");
+  const links = `<div style="margin-top:6px"><a href="${escapeHtml(r.announcement_url)}" target="_blank">announcement</a> · <a href="${escapeHtml(r.linkedin_company)}" target="_blank">LinkedIn</a> · <a href="${escapeHtml(r.linkedin_finance)}" target="_blank">finance team</a></div>`;
+
+  return `<tr>
+    <td class="composite">${r.composite.toFixed(1)}</td>
+    <td><strong>${escapeHtml(r.company)}</strong>${cfoPill}${sector}${links}</td>
+    <td>${stagePill}</td>
+    <td>${escapeHtml(hq)}</td>
+    <td>${escapeHtml(lead)}</td>
+    <td class="num">${r.finance_gap}/10</td>
+    <td class="num">${r.personal_fit}/10</td>
+    <td class="num">${r.reachability}/5</td>
+    <td class="rationale">
+      ${escapeHtml(r.rationale)}
+      <details><summary>outreach angle</summary>${escapeHtml(r.outreach_angle)}</details>
+    </td>
+    <td>${r.announced_date}<div style="color:var(--muted); font-size:11px">${escapeHtml(r.source)}</div></td>
+  </tr>`;
+}
+
+function applyFilters() {
+  const q = search.value.toLowerCase().trim();
+  const stageVal = stage.value;
+  const minS = parseFloat(minScore.value);
+  const cfoVal = cfo.value;
+
+  let rows = DATA.filter(r => {
+    if (stageVal && r.stage !== stageVal) return false;
+    if (r.composite < minS) return false;
+    if (cfoVal === "yes" && !r.has_cfo) return false;
+    if (cfoVal === "no" && r.has_cfo) return false;
+    if (q) {
+      const hay = [r.company, r.sector, r.lead_investor, r.rationale, r.hq_city, r.hq_country].join(" ").toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  rows.sort((a, b) => {
+    const va = a[sortKey], vb = b[sortKey];
+    if (typeof va === "number") return sortDir === "asc" ? va - vb : vb - va;
+    return sortDir === "asc" ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
+  });
+
+  tbody.innerHTML = rows.map(rowHtml).join("");
+  countEl.textContent = `${rows.length} of ${DATA.length} companies`;
+  emptyEl.style.display = rows.length === 0 ? "block" : "none";
+
+  document.querySelectorAll("th[data-key]").forEach(th => {
+    th.classList.remove("sort-asc", "sort-desc");
+    if (th.dataset.key === sortKey) th.classList.add("sort-" + sortDir);
+  });
+}
+
+document.querySelectorAll("th[data-key]").forEach(th => {
+  th.addEventListener("click", () => {
+    const key = th.dataset.key;
+    if (sortKey === key) {
+      sortDir = sortDir === "asc" ? "desc" : "asc";
+    } else {
+      sortKey = key;
+      sortDir = th.dataset.num ? "desc" : "asc";
+    }
+    applyFilters();
+  });
+});
+
+[search, stage, minScore, cfo].forEach(el => el.addEventListener("input", applyFilters));
+applyFilters();
+</script>
+</body>
+</html>
